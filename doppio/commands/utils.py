@@ -15,6 +15,14 @@ def create_file(path: Path, content: str | None = None):
 			f.write(content)
 
 
+def _append_command(existing: str | None, new_cmd: str) -> str:
+	if not existing:
+		return new_cmd
+	if new_cmd in existing:
+		return existing
+	return f"{existing} && {new_cmd}"
+
+
 def add_commands_to_root_package_json(app, spa_name):
 	app_path = Path("../apps") / app
 	spa_path: Path = app_path / spa_name
@@ -24,7 +32,7 @@ def add_commands_to_root_package_json(app, spa_name):
 		print("package.json not found. Please manually update the build command.")
 		return
 
-	data = {}
+
 	with package_json_path.open("r") as f:
 		data = json.load(f)
 
@@ -39,22 +47,27 @@ def add_commands_to_root_package_json(app, spa_name):
 	with package_json_path.open("w") as f:
 		json.dump(data, f, indent=2)
 
-	# Update app's package.json
 	app_package_json_path: Path = app_path / "package.json"
 
 	if not app_package_json_path.exists():
 		subprocess.run(["npm", "init", "--yes"], cwd=app_path)
 
-		data = {}
-		with app_package_json_path.open("r") as f:
-			data = json.load(f)
+	with app_package_json_path.open("r") as f:
+		app_data = json.load(f)
 
-		data["scripts"]["postinstall"] = f"cd {spa_name} && yarn install"
-		data["scripts"]["dev"] = f"cd {spa_name} && yarn dev"
-		data["scripts"]["build"] = f"cd {spa_name} && yarn build"
+	app_data.setdefault("scripts", {})
+	scripts = app_data["scripts"]
 
-		with app_package_json_path.open("w") as f:
-			json.dump(data, f, indent=2)
+	scripts["postinstall"] = _append_command(
+		scripts.get("postinstall"), f"cd {spa_name} && yarn install"
+	)
+
+	scripts["build"] = _append_command(
+		scripts.get("build"), f"cd {spa_name} && yarn build"
+	)
+
+	with app_package_json_path.open("w") as f:
+		json.dump(app_data, f, indent=2)
 
 
 def add_routing_rule_to_hooks(app, spa_name):

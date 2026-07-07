@@ -14,17 +14,29 @@ def create_file(path: Path, content: str | None = None):
 		with path.open("w") as f:
 			f.write(content)
 
+_LEGACY_CD_YARN = re.compile(
+	r"(?<!\()\bcd\s+(\S+)\s+&&\s+(yarn\s+[^&]+?)(?=\s+&&\s+cd\s|\s*$)"
+)
+
+
+def _normalize_existing_commands(existing: str) -> str:
+	return _LEGACY_CD_YARN.sub(
+		lambda m: f"(cd {m.group(1)} && {m.group(2).strip()})", existing
+	)
+
 
 def _append_command(existing: str | None, new_cmd: str) -> str:
 	if not existing:
 		return new_cmd
-	
+
+	existing = _normalize_existing_commands(existing)
+
 	norm_existing = " ".join(existing.split())
 	norm_new = " ".join(new_cmd.split())
-	
+
 	if norm_new in norm_existing:
 		return existing
-		
+
 	return f"{existing} && {new_cmd}"
 
 
@@ -36,7 +48,6 @@ def add_commands_to_root_package_json(app, spa_name):
 	if not package_json_path.exists():
 		print("package.json not found. Please manually update the build command.")
 		return
-
 
 	with package_json_path.open("r") as f:
 		data = json.load(f)
@@ -64,15 +75,15 @@ def add_commands_to_root_package_json(app, spa_name):
 	scripts = app_data["scripts"]
 
 	scripts["postinstall"] = _append_command(
-		scripts.get("postinstall"), f"cd {spa_name} && yarn install"
+		scripts.get("postinstall"), f"(cd {spa_name} && yarn install)"
 	)
 
 	scripts["build"] = _append_command(
-		scripts.get("build"), f"cd {spa_name} && yarn build"
+		scripts.get("build"), f"(cd {spa_name} && yarn build)"
 	)
 
 	scripts["dev"] = _append_command(
-		scripts.get("dev"), f"cd {spa_name} && yarn dev"
+		scripts.get("dev"), f"(cd {spa_name} && yarn dev)"
 	)
 
 	with app_package_json_path.open("w") as f:

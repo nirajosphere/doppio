@@ -18,9 +18,13 @@ def create_file(path: Path, content: str | None = None):
 def _append_command(existing: str | None, new_cmd: str) -> str:
 	if not existing:
 		return new_cmd
-	parts = [part.strip() for part in existing.split("&&")]
-	if new_cmd.strip() in parts:
+	
+	norm_existing = " ".join(existing.split())
+	norm_new = " ".join(new_cmd.split())
+	
+	if norm_new in norm_existing:
 		return existing
+		
 	return f"{existing} && {new_cmd}"
 
 
@@ -65,6 +69,10 @@ def add_commands_to_root_package_json(app, spa_name):
 
 	scripts["build"] = _append_command(
 		scripts.get("build"), f"cd {spa_name} && yarn build"
+	)
+
+	scripts["dev"] = _append_command(
+		scripts.get("dev"), f"cd {spa_name} && yarn dev"
 	)
 
 	with app_package_json_path.open("w") as f:

@@ -18,7 +18,8 @@ def create_file(path: Path, content: str | None = None):
 def _append_command(existing: str | None, new_cmd: str) -> str:
 	if not existing:
 		return new_cmd
-	if new_cmd in existing:
+	parts = [part.strip() for part in existing.split("&&")]
+	if new_cmd.strip() in parts:
 		return existing
 	return f"{existing} && {new_cmd}"
 
@@ -50,7 +51,7 @@ def add_commands_to_root_package_json(app, spa_name):
 	app_package_json_path: Path = app_path / "package.json"
 
 	if not app_package_json_path.exists():
-		subprocess.run(["npm", "init", "--yes"], cwd=app_path)
+		subprocess.run(["npm", "init", "--yes"], cwd=app_path, check=True)
 
 	with app_package_json_path.open("r") as f:
 		app_data = json.load(f)
